@@ -5,14 +5,16 @@ pub enum StatusCode {
     Ok = 200,
     BadRequest = 400,
     NotFound = 404,
+    MethodNotAllowed = 405,
 }
 
 impl StatusCode {
     pub fn reason_phrase(&self) -> &str {
         match self {
-            Self::Ok => "Ok",
-            Self::BadRequest => "Bad Request",
-            Self::NotFound => "Not Found",
+            StatusCode::Ok => "Ok",
+            StatusCode::BadRequest => "Bad Request",
+            StatusCode::MethodNotAllowed => "Method Not Allowed",
+            StatusCode::NotFound => "Not Found",
         }
     }
 }

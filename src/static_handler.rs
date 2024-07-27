@@ -1,13 +1,13 @@
-use super::http::{Request, Response, StatusCode, Method};
+use super::http::{Request, Response, StatusCode};
 use crate::server::Handler;
 use tokio::fs;
 use tokio::time::{sleep, Duration};
 
-pub struct WebsiteHandler {
+pub struct StaticHandler {
     public_path: String,
 }
 
-impl WebsiteHandler {
+impl StaticHandler {
     pub fn new(public_path: String) -> Self {
         Self { public_path }
     }
@@ -30,19 +30,14 @@ impl WebsiteHandler {
 }
 
 #[async_trait::async_trait]
-impl Handler for WebsiteHandler {
+impl Handler for StaticHandler {
     async fn handle_request(&self, request: &Request) -> Response {
-        println!("Received a request: {}", request.path());
-        match request.method() {
-            Method::GET => match request.path() {
-                "/" => Response::new(StatusCode::Ok, self.read_file("index.html").await),
-                "/hello" => Response::new(StatusCode::Ok, Some("Hello World!".to_string())),
-                path => match self.read_file(path).await {
-                    Some(contents) => Response::new(StatusCode::Ok, Some(contents)),
-                    None => Response::new(StatusCode::NotFound, None),
-                },
-            }
-            _ => Response::new(StatusCode::NotFound, None),
+        match request.path() {
+           "/" => Response::new(StatusCode::Ok, self.read_file("index.html").await),
+            path => match self.read_file(path).await {
+                Some(contents) => Response::new(StatusCode::Ok, Some(contents)),
+                None => Response::new(StatusCode::NotFound, None),
+            },
         }
     }
 }
