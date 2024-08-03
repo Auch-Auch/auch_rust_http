@@ -1,7 +1,6 @@
 use super::http::{Request, Response, StatusCode};
 use crate::server::Handler;
 use tokio::fs;
-use tokio::time::{sleep, Duration};
 
 pub struct StaticHandler {
     public_path: String,
@@ -14,7 +13,6 @@ impl StaticHandler {
 
     async fn read_file(&self, file_path: &str) -> Option<String> {
         let path = format!("{}/{}", self.public_path, file_path);
-        sleep(Duration::from_millis(200)).await;
         match fs::canonicalize(&path).await {
             Ok(path) => {
                 if path.starts_with(&self.public_path) {

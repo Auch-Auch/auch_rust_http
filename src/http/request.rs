@@ -3,16 +3,18 @@ use std::str::Utf8Error;
 use std::option::Option;
 use super::method::Method;
 use super::method::MethodError;
-use super::{Query, QueryValue};
+use super::{Query};
+use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::error::Error;
 use std::fmt::{Display, Formatter, Result as FmtResult, Debug};
 
-
+#[derive(Debug)]
 pub struct Request<'buf> {
     path: &'buf str,
     query: Option<Query<'buf>>,
     method: Method,
+    headers: HashMap<&'buf str, &'buf str>,
 }
 
 impl<'buf> Request<'buf> {
@@ -27,6 +29,10 @@ impl<'buf> Request<'buf> {
     pub fn query(&self) -> Option<&Query> {
         self.query.as_ref()
     }
+
+    pub fn headers(&self) -> &HashMap<&str, &str> {
+        &self.headers
+    }
 }
 
 impl<'buf> TryFrom<&'buf [u8]> for Request<'buf> {
@@ -37,7 +43,7 @@ impl<'buf> TryFrom<&'buf [u8]> for Request<'buf> {
 
         let (method, request) = get_next_word(request).ok_or(ParseError::InvalidRequest)?;
         let (mut path, request) = get_next_word(request).ok_or(ParseError::InvalidRequest)?;
-        let (protocol, _) = get_next_word(request).ok_or(ParseError::InvalidRequest)?;
+        let (protocol, request) = get_next_word(request).ok_or(ParseError::InvalidRequest)?;
 
         match protocol {
             "HTTP/1.1" => (),
@@ -53,10 +59,13 @@ impl<'buf> TryFrom<&'buf [u8]> for Request<'buf> {
             path = &path[..i];
         }
 
+        let headers = parse_headers(request);
+
         Ok(Self {
             path,
             query,
-            method
+            method,
+            headers,
         })
     
     }
@@ -69,6 +78,17 @@ fn get_next_word(request: &str) -> Option<(&str, &str)> {
         }
     }
     None 
+}
+
+fn parse_headers(request: &str) -> HashMap<&str, &str> {
+
+    let mut headers = HashMap::new();
+    for line in request.split("\r\n") {
+        if line == "" { break; }
+        let (key, value) = line.split_once(": ").unwrap();
+        headers.insert(key, value);
+    }
+    headers
 }
 
 pub enum ParseError {

@@ -1,7 +1,6 @@
 pub use request::Request;
 pub use method::Method;
-pub use request::ParseError;
-pub use query::{Query, Value as QueryValue};                
+pub use query::{Query};                
 pub use response::Response;
 pub use status_code::StatusCode;
 

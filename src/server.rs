@@ -2,8 +2,8 @@ use std::convert::TryFrom;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::net::TcpListener;
-use tokio::io::{AsyncReadExt};
-use crate::http::{request, Request, Response, StatusCode, Method};
+use tokio::io::{Result as IoResult, AsyncReadExt, AsyncWriteExt};
+use crate::http::{Request, Response, StatusCode, Method};
 use crate::StaticHandler;
 use async_trait::async_trait;
 
@@ -74,29 +74,32 @@ impl Server {
         println!("Listening on {}", self.address);
         let listener = TcpListener::bind(&self.address).await.unwrap();
         let router = Arc::new(router);
+
         loop {
             match listener.accept().await {
-
                 Ok((mut stream, _)) => {
                     let router = Arc::clone(&router);
                     tokio::spawn(async move {
-                        let mut buffer = [0; 1024];
-                        match stream.read(&mut buffer).await {
+
+                        let mut buffer = Vec::new();
+
+                        match read_stream(&mut stream, &mut buffer).await {
                             Ok(_) => {
                                 println!("Received a request: {}", String::from_utf8_lossy(&buffer));
                                 let response: Response = match Request::try_from(&buffer[..]) {
                                     Ok(request) => {
-                                        let result = router.handle_request(&request).await;
-                                        result
+                                        println!("{:?}", request);
+                                        router.handle_request(&request).await
                                     }
                                     Err(e) => Response::new(StatusCode::BadRequest, Some(e.to_string())),
                                 };
+
                                 if let Err(e) = response.send(&mut stream).await {
                                     println!("Failed to send response: {}", e);
                                 }
                             }
                             Err(e) => println!("Failed to read from connection: {}", e),
-                        };
+                        }
                     });
                 }
                 Err(e) => {
@@ -105,4 +108,27 @@ impl Server {
             }
         }
     }
+}
+
+async fn read_stream(stream: &mut tokio::net::TcpStream, buffer: &mut Vec<u8>) -> IoResult<()> {
+    let mut temp_buffer = [0; 1024]; // Temporary buffer for reading chunks
+
+    loop {
+        let n = stream.read(&mut temp_buffer).await?;
+        if n == 0 {
+            break;
+        }
+
+        buffer.extend_from_slice(&temp_buffer[..n]);
+
+        if is_end_of_request(&buffer) {
+            break;
+        }
+    }
+
+    Ok(())
+}
+
+fn is_end_of_request(buffer: &[u8]) -> bool {
+    buffer.windows(4).any(|window| window == b"\r\n\r\n")
 }
